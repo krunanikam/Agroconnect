@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FarmaConnect</title>
+    <link rel="stylesheet" href="/css/farmers.css">
+    <style>
+        .commodity-box {
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin: 10px;
+            width: 300px;
+            display: inline-block;
+            text-align: left;
+        }
+        .remove-btn {
+            background-color: red;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-brand">
+            <h2>FarmaConnect</h2>
+        </div>
+        <ul class="navbar-nav">
+            <li><a href="index.html" class="nav-link active">Home</a></li>
+            <li><a href="#" class="nav-link">I am a Farmer</a></li>
+            <li><a href="#" class="nav-link">I am a Vendor</a></li>
+            <li><a href="#" class="nav-link">Contact</a></li>
+        </ul>
+        <div class="button-container">
+            <button class="btn-connect" onclick="openEmailForm()">Connect Now</button>
+        </div>
+    </nav>
+
+    <!-- Email Verification Form -->
+    <div class="form-overlay" id="emailOverlay" style="display:none;">
+        <div class="form-modal">
+            <form id="emailForm">
+                <h2>Email Verification</h2>
+                <div class="form-group">
+                    <label for="email">Email:</label>
+                    <input type="email" id="email" placeholder="Enter your email" required>
+                    <p id="emailError" class="error-message"></p>
+                </div>
+                <button type="button" onclick="sendVerificationCode()">Send Code</button>
+                
+                <div class="form-group" id="verifySection" style="display:none;">
+                    <label for="verificationCode">Enter Code:</label>
+                    <input type="text" id="verificationCode" placeholder="Enter verification code" required>
+                    <button type="button" onclick="verifyCode()">Verify</button>
+                    <p id="otpError" class="error-message"></p>
+                </div>
+                
+                <p id="statusMessage"></p>
+                <button type="button" onclick="closeForm('emailOverlay')">Cancel</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Commodity Form -->
+    <div class="form-overlay" id="commodityOverlay" style="display:none;">
+        <div class="form-modal">
+            <form id="commodityForm">
+                <h2>Commodity Details</h2>
+                
+                <div class="form-group">
+                    <label for="farmerName">Farmer Name:</label>
+                    <input type="text" id="farmerName" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="address">Address:</label>
+                    <input type="text" id="address" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="phone">Phone Number:</label>
+                    <input type="tel" id="phone" pattern="[0-9]{10}" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="commodity">Commodity Name:</label>
+                    <input type="text" id="commodity" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="quantity">Quantity (kg):</label>
+                    <input type="number" id="quantity" min="1" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="price">Expected Price (₹):</label>
+                    <input type="number" id="price" min="1" required>
+                </div>
+
+                <button type="button" onclick="submitCommodity()">Submit</button>
+                <button type="button" onclick="closeForm('commodityOverlay')">Cancel</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Submitted Commodities Section -->
+    <div id="submittedData">
+        <h2>Submitted Commodities</h2>
+        <div id="commodityList" class="commodity-container"></div>
+    </div>
+
+    <script>
+        // Fetch and display data on page load
+        window.onload = function() {
+            fetch("http://127.0.0.1:5000/get-farmers")
+                .then(response => response.json())
+                .then(data => {
+                    console.log("Data received from backend:", data);  // Debugging
+                    data.forEach(item => {
+                        console.log("Item:", item);  // Debugging
+                        displayCommodity(item);
+                    });
+                })
+                .catch(error => console.error("Error fetching data:", error));
+        };
+
+        function openEmailForm() {
+            document.getElementById("emailOverlay").style.display = "flex";
+        }
+
+        function closeForm(id) {
+            document.getElementById(id).style.display = "none";
+        }
+
+        function sendVerificationCode() {
+            let email = document.getElementById("email").value.trim();
+            let emailError = document.getElementById("emailError");
+            if (!email) {
+                emailError.textContent = "Please enter your email";
+                return;
+            } else {
+                emailError.textContent = "";
+            }
+
+            fetch("http://127.0.0.1:5000/send-otp", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email: email })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert("OTP sent successfully!");
+                    document.getElementById("verifySection").style.display = "block";
+                } else {
+                    emailError.textContent = "Failed to send OTP: " + data.message;
+                }
+            })
+            .catch(error => console.error("Error:", error));
+        }
+
+        function verifyCode() {
+            let email = document.getElementById("email").value.trim();
+            let code = document.getElementById("verificationCode").value.trim();
+            let otpError = document.getElementById("otpError");
+
+            if (!email || !code) {
+                otpError.textContent = "Please enter both email and OTP";
+                return;
+            } else {
+                otpError.textContent = "";
+            }
+
+            fetch("http://127.0.0.1:5000/verify-otp", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email: email, otp: code })
+            })
+            .then(response => response.json())
+            .then(data => {
+                let statusMessage = document.getElementById("statusMessage");
+                if (data.success) {
+                    statusMessage.style.color = "green";
+                    statusMessage.innerText = "Email verified successfully!";
+                    setTimeout(() => {
+                        closeForm("emailOverlay");
+                        document.getElementById("commodityOverlay").style.display = "flex";
+                    }, 2000);
+                } else {
+                    statusMessage.style.color = "red";
+                    statusMessage.innerText = "Invalid OTP!";
+                }
+            })
+            .catch(error => console.error("Error:", error));
+        }
+
+        function submitCommodity() {
+            let farmerName = document.getElementById("farmerName").value;
+            let address = document.getElementById("address").value;
+            let phone = document.getElementById("phone").value;
+            let commodity = document.getElementById("commodity").value;
+            let quantity = document.getElementById("quantity").value;
+            let price = document.getElementById("price").value;
+            let email = document.getElementById("email").value;
+
+            fetch("http://127.0.0.1:5000/store-commodity", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ farmerName, address, phone, commodity, quantity, price, email })
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert("Commodity submitted successfully!");
+                closeForm("commodityOverlay");
+                displayCommodity(data);
+            })
+            .catch(error => console.error("Error:", error));
+        }
+
+        function displayCommodity(data) {
+            let container = document.getElementById("commodityList");
+            let item = document.createElement("div");
+            item.className = "commodity-box";
+            item.innerHTML = `
+                <p><strong>Farmer Name:</strong> ${data.name}</p>
+                <p><strong>Address:</strong> ${data.address}</p>
+                <p><strong>Phone:</strong> ${data.mobile}</p>
+                <p><strong>Commodity:</strong> ${data.commodity}</p>
+                <p><strong>Quantity:</strong> ${data.quantity} kg</p>
+                <p><strong>Price:</strong> ₹${data.price}</p>
+                <p><strong>Email:</strong> ${data.email}</p>
+                <button class="remove-btn" onclick="verifyEmailForRemoval('${data.email}', ${data.id})">Remove</button>
+            `;
+            container.appendChild(item);
+        }
+
+        function verifyEmailForRemoval(email, id) {
+            let verifyEmail = prompt("Please enter your email to verify removal:");
+            if (verifyEmail && verifyEmail.trim().toLowerCase() === email.trim().toLowerCase()) {
+                fetch(`http://127.0.0.1:5000/delete-farmer/${id}`, {
+                    method: "DELETE"
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert("Commodity removed successfully!");
+                        document.querySelector(`.commodity-box button[onclick="verifyEmailForRemoval('${email}', ${id})"]`).parentElement.remove();
+                    } else {
+                        alert("Failed to remove commodity.");
+                    }
+                })
+                .catch(error => console.error("Error:", error));
+            } else {
+                alert("Email verification failed. Please enter the correct email.");
+            }
+        }
+    </script>
+</body>
+</html>
